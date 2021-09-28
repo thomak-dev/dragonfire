@@ -8,7 +8,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#define GLM_FORCE_MESSAGES
+//#define GLM_FORCE_MESSAGES
 #define GLM_FORCE_INTRINSICS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
