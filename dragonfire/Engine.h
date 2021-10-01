@@ -11,29 +11,39 @@ class Engine
     Engine(std::string_view title);
     ~Engine();
     void Run();
+    static vk::Instance GetVkInstance()
+    {
+        return instance;
+    }
 
   private:
     SDL_Window* window{};
-    vk::Instance instance{};
-    vk::SurfaceKHR surface{};
-    vk::DebugUtilsMessengerEXT dbgMessenger{};
-    vk::PhysicalDevice physicalDevice{};
-    vk::Device device{};
-    vk::Queue graphicsQueue{};
-    vk::Queue transferQueue{};
-    vk::Queue presentQueue{};
-    uint32_t indexPresent;
-    uint32_t indexGraphics;
-    uint32_t indexTransfer;
-    vk::SurfaceFormatKHR surfaceFormat{};
-    vk::PresentModeKHR presentMode{};
-    vk::SwapchainKHR swapchain{};
+    static vk::Instance instance;
+    vk::DebugUtilsMessengerEXT dbgMessenger;
+    vk::PhysicalDevice physicalDevice;
+    vk::Device device;
+
+    vk::Queue graphicsQueue;
+    vk::Queue transferQueue;
+    vk::Queue presentQueue;
+    uint32_t presentQueueFamily{};
+    uint32_t graphicsQueueFamily{};
+    uint32_t transferQueueFamily{};
+
+    vk::SurfaceKHR surface;
+    vk::SurfaceFormatKHR surfaceFormat;
+    vk::PresentModeKHR presentMode;
+    vk::SwapchainKHR swapchain;
     std::vector<vk::Image> swapchainImages;
-    vk::Semaphore renderingFinished{};
-    vk::Semaphore imageReady{};
-    std::array<vk::CommandPool, 2> graphicsCommandPools;
-    std::array<vk::CommandBuffer, 2> graphicsCmdBuffers;
-    std::array<vk::Fence, 2> fences;
+
+    vk::Semaphore renderingFinished;
+    vk::Semaphore imageReady;
+    vk::Semaphore imageAcquiredForPresent;
+    vk::CommandPool graphicsCommandPool;
+    vk::CommandPool presentCommandPool;
+    std::vector<vk::CommandBuffer> graphicsCmdBuffers;
+    std::vector<vk::Fence> fences;
+    std::vector<vk::CommandBuffer> acquireImageForPresentCmdBuffers;
 
     void AssignQueueFamiliyIndices(const std::vector<vk::QueueFamilyProperties>& queueFams);
     void DetermineSurfaceFormat();
