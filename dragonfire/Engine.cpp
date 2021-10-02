@@ -3,9 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
-#include <iterator>
 #include <map>
-#include <ranges>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -196,12 +194,13 @@ Engine::Engine(std::string_view title)
     }
 
     std::array deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    std::ranges::sort(deviceExtensions);
-    const auto extCheck = [&](auto a) {
-        std::ranges::sort(a);
-        return std::ranges::includes(a, deviceExtensions, {}, [](auto& ax) { return std::string_view{ax.extensionName}; });
+    std::sort(deviceExtensions.begin(), deviceExtensions.end());
+    const auto extCheck = [&](const auto& a) {
+        std::vector<const char*> extNames;
+        std::transform(a.begin(), a.end(), std::back_inserter(extNames), [](const auto& element) { return element.extensionName; });
+        return std::includes(extNames.begin(), extNames.end(), deviceExtensions.begin(), deviceExtensions.end());
     };
-    std::ranges::sort(physicalDevices, [=](auto a, auto b) {
+    std::sort(physicalDevices.begin(), physicalDevices.end(), [=](auto a, auto b) {
         return a.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu && b.getProperties().deviceType != vk::PhysicalDeviceType::eDiscreteGpu ||
                CheckQueueFamilies(a.getQueueFamilyProperties(), a, surface) && !CheckQueueFamilies(b.getQueueFamilyProperties(), b, surface) ||
                extCheck(a.enumerateDeviceExtensionProperties()) && !extCheck(b.enumerateDeviceExtensionProperties()) ||
@@ -259,9 +258,9 @@ Engine::Engine(std::string_view title)
 
     auto surfacePresentModes = physicalDevice.getSurfacePresentModesKHR(surface);
 
-    std::ranges::sort(surfacePresentModes, [](auto a, auto b) {
-        return std::distance(presentModePrio.begin(), std::ranges::find(presentModePrio, a)) <
-               std::distance(presentModePrio.begin(), std::ranges::find(presentModePrio, b));
+    std::sort(surfacePresentModes.begin(), surfacePresentModes.end(), [](auto a, auto b) {
+        return std::distance(presentModePrio.begin(), std::find(presentModePrio.begin(), presentModePrio.end(), a)) <
+               std::distance(presentModePrio.begin(), std::find(presentModePrio.begin(), presentModePrio.end(), b));
     });
     presentMode = surfacePresentModes.front();
 
@@ -287,7 +286,7 @@ void Engine::AssignQueueFamiliyIndices(const std::vector<vk::QueueFamilyProperti
             indexSets[2].insert(i);
     }
 
-    if (std::ranges::any_of(indexSets, [](const auto& set) { return set.empty(); }))
+    if (std::any_of(indexSets.begin(), indexSets.end(), [](const auto& set) { return set.empty(); }))
         throw std::runtime_error{"No suitable graphics device found."};
 
     std::vector<uint32_t> setIndicesToRemove;
@@ -296,9 +295,9 @@ void Engine::AssignQueueFamiliyIndices(const std::vector<vk::QueueFamilyProperti
         setIndicesToRemove.clear();
         for (uint32_t i = 0; i < indexSets.size(); ++i)
         {
-            auto foundIndex = std::ranges::find_if(indexSets[i], [&](auto element) {
+            auto foundIndex = std::find_if(indexSets[i].begin(), indexSets[i].end(), [&](auto element) {
                 for (size_t j = 0; j < indexSets.size() - 1; ++j)
-                    if (indexSets[(i + j + 1) % indexSets.size()].contains(element))
+                    if (indexSets[(i + j + 1) % indexSets.size()].count(element))
                         return false;
                 return true;
             });
@@ -330,13 +329,13 @@ void Engine::DetermineSurfaceFormat()
     auto surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface);
     constexpr std::array ColorSpacePrio = {vk::ColorSpaceKHR::eSrgbNonlinear};
     constexpr std::array FormatPrio = {vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Srgb, vk::Format::eA8B8G8R8SrgbPack32};
-    std::ranges::stable_sort(surfaceFormats, [](const auto& a, const auto& b) {
-        return std::distance(ColorSpacePrio.begin(), std::ranges::find(ColorSpacePrio, a.colorSpace)) <
-               std::distance(ColorSpacePrio.begin(), std::ranges::find(ColorSpacePrio, b.colorSpace));
+    std::stable_sort(surfaceFormats.begin(), surfaceFormats.end(), [&](const auto& a, const auto& b) {
+        return std::distance(ColorSpacePrio.begin(), std::find(ColorSpacePrio.begin(), ColorSpacePrio.end(), a.colorSpace)) <
+               std::distance(ColorSpacePrio.begin(), std::find(ColorSpacePrio.begin(), ColorSpacePrio.end(), b.colorSpace));
     });
-    std::ranges::stable_sort(surfaceFormats, [](const auto& a, const auto& b) {
-        return std::distance(FormatPrio.begin(), std::ranges::find(FormatPrio, a.format)) <
-               std::distance(FormatPrio.begin(), std::ranges::find(FormatPrio, b.format));
+    std::stable_sort(surfaceFormats.begin(), surfaceFormats.end(), [&](const auto& a, const auto& b) {
+        return std::distance(FormatPrio.begin(), std::find(FormatPrio.begin(), FormatPrio.end(), a.format)) <
+               std::distance(FormatPrio.begin(), std::find(FormatPrio.begin(), FormatPrio.end(), b.format));
     });
     surfaceFormat = surfaceFormats.front();
 }
@@ -419,7 +418,7 @@ bool Engine::CreateSwapchain()
             auto count = graphicsCmdBuffers.size() - graphicsCmdBuffersSizeBefore;
             auto bufs = device.allocateCommandBuffers(
                 vk::CommandBufferAllocateInfo{}.setCommandPool(graphicsCommandPool).setCommandBufferCount(static_cast<uint32_t>(count)));
-            std::ranges::copy(bufs, graphicsCmdBuffers.begin() + graphicsCmdBuffersSizeBefore);
+            std::copy(bufs.begin(), bufs.end(), graphicsCmdBuffers.begin() + graphicsCmdBuffersSizeBefore);
         }
 
         return true;
