@@ -1,51 +1,19 @@
 #pragma once
-#include <optional>
+#include <memory>
 #include <string_view>
 
-#include "vulkan.h"
 #include <SDL2/SDL.h>
+
+#include "Graphics.h"
 
 class Engine
 {
-  public:
+public:
     Engine(std::string_view title);
     ~Engine();
     void Run();
-    static vk::Instance GetVkInstance()
-    {
-        return instance;
-    }
 
-  private:
+private:
     SDL_Window* window{};
-    static vk::Instance instance;
-    vk::DebugUtilsMessengerEXT dbgMessenger;
-    vk::PhysicalDevice physicalDevice;
-    vk::Device device;
-
-    vk::Queue graphicsQueue;
-    vk::Queue transferQueue;
-    vk::Queue presentQueue;
-    uint32_t presentQueueFamily{};
-    uint32_t graphicsQueueFamily{};
-    uint32_t transferQueueFamily{};
-
-    vk::SurfaceKHR surface;
-    vk::SurfaceFormatKHR surfaceFormat;
-    vk::PresentModeKHR presentMode;
-    vk::SwapchainKHR swapchain;
-    std::vector<vk::Image> swapchainImages;
-
-    vk::Semaphore renderingFinished;
-    vk::Semaphore imageReady;
-    vk::Semaphore imageAcquiredForPresent;
-    vk::CommandPool graphicsCommandPool;
-    vk::CommandPool presentCommandPool;
-    std::vector<vk::CommandBuffer> graphicsCmdBuffers;
-    std::vector<vk::Fence> fences;
-    std::vector<vk::CommandBuffer> acquireImageForPresentCmdBuffers;
-
-    void AssignQueueFamiliyIndices(const std::vector<vk::QueueFamilyProperties>& queueFams);
-    void DetermineSurfaceFormat();
-    bool CreateSwapchain();
+    std::unique_ptr<Graphics> graphics;
 };

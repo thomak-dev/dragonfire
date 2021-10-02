@@ -3,4 +3,5 @@ BasedOnStyle: Microsoft
 ColumnLimit: 160
 PointerAlignment: Left
 DerivePointerAlignment: false
+AccessModifierOffset: -4
 ...
