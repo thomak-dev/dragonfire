@@ -1,19 +1,23 @@
+#include "pch.h"
+
 #include "Engine.h"
 
-#include <iostream>
-
-#include <SDL2/SDL_vulkan.h>
-
 static const char* EngineName = "Dragonfire Engine";
+Engine* Engine::instance{};
 
 Engine::Engine(std::string_view title)
 {
+    if (instance)
+        throw std::runtime_error{"There can be only one Engine instance."};
+    instance = this;
     SDL_Init(SDL_INIT_VIDEO);
     SDL_version version;
     SDL_VERSION(&version);
-    std::cout << "Compiled against SDL version: " << (int)version.major << '.' << (int)version.minor << '.' << (int)version.patch << '\n';
+    std::cout << "Compiled against SDL version: " << static_cast<int>(version.major) << '.' << static_cast<int>(version.minor) << '.'
+              << static_cast<int>(version.patch) << '\n';
     SDL_GetVersion(&version);
-    std::cout << "Actual SDL version: " << (int)version.major << '.' << (int)version.minor << '.' << (int)version.patch << '\n';
+    std::cout << "Actual SDL version: " << static_cast<int>(version.major) << '.' << static_cast<int>(version.minor) << '.' << static_cast<int>(version.patch)
+              << '\n';
 
     window = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600,
                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -28,7 +32,7 @@ Engine::Engine(std::string_view title)
 
 void Engine::Run()
 {
-    SDL_Event event;
+    SDL_Event event{};
     bool quit = false;
     while (!quit)
     {
@@ -36,6 +40,10 @@ void Engine::Run()
         {
             if (event.type == SDL_QUIT)
                 quit = true;
+
+            if (event.type == SDL_KEYDOWN)
+                if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+                    quit = true;
 
             if (event.type == SDL_WINDOWEVENT)
                 if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
@@ -50,11 +58,14 @@ void Engine::Run()
 
         graphics->Render();
     }
+    graphics->Device().waitIdle();
 }
 
 Engine::~Engine()
 {
+    resources.Clear();
     graphics.reset();
     SDL_DestroyWindow(window);
     SDL_Quit();
+    instance = nullptr;
 }

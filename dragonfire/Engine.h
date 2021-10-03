@@ -1,19 +1,26 @@
 #pragma once
-#include <memory>
-#include <string_view>
-
-#include <SDL2/SDL.h>
 
 #include "Graphics.h"
+#include "ResourceManager.h"
 
 class Engine
 {
 public:
-    Engine(std::string_view title);
+    explicit Engine(std::string_view title);
+    Engine(Engine&) = delete;
+    Engine(Engine&&) = delete;
+    Engine& operator=(Engine&) = delete;
+    Engine& operator=(Engine&&) = delete;
     ~Engine();
+
+    static Engine& Instance() noexcept { return *instance; }
+    ResourceManager& Resources() noexcept { return resources; }
+
     void Run();
 
 private:
+    static Engine* instance;
     SDL_Window* window{};
     std::unique_ptr<Graphics> graphics;
+    ResourceManager resources;
 };

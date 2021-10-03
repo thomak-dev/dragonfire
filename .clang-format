@@ -4,4 +4,7 @@ ColumnLimit: 160
 PointerAlignment: Left
 DerivePointerAlignment: false
 AccessModifierOffset: -4
+AlwaysBreakTemplateDeclarations: Yes
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
 ...
