@@ -5,7 +5,8 @@ layout(location = 1) in vec4 vertexColor;
 
 layout(binding = 0) uniform Matrix
 {
-    mat4 vp;
+    mat4 view;
+    mat4 projection;
 };
 
 layout(location = 0) out vec4 fragColor;
@@ -13,5 +14,5 @@ layout(location = 0) out vec4 fragColor;
 void main()
 {
     fragColor = vertexColor;
-    gl_Position = vp * vec4(position, 1);
+    gl_Position = projection * view * vec4(position, 1);
 }

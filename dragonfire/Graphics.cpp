@@ -4,17 +4,18 @@
 
 #include "Engine.h"
 #include "OriginGizmo.h"
+#include "dfmath.h"
 
 namespace fs = std::filesystem;
+
+namespace gfx
+{
+
 constexpr std::array presentModePrio = {vk::PresentModeKHR::eFifo, vk::PresentModeKHR::eMailbox};
 
-Graphics::Graphics(SDL_Window* window, std::string_view title, std::string_view engineName)
-    : GraphicsBase{window, title, engineName}, surfaceFormat{DetermineSurfaceFormat()}
+Graphics::Graphics(SDL_Window* window, std::string_view title)
+    : GraphicsBase{window, title}, surfaceFormat{DetermineSurfaceFormat()}, matrices{glm::mat4(1), glm::mat4(1)}
 {
-    if (instance)
-        throw std::runtime_error("Graphics instance already exists.");
-    instance = this;
-
     presentCommandPool = device.createCommandPool(vk::CommandPoolCreateInfo{}.setQueueFamilyIndex(presentQueueFamily));
     graphicsCommandPool =
         device.createCommandPool(vk::CommandPoolCreateInfo{}
@@ -48,11 +49,11 @@ Graphics::Graphics(SDL_Window* window, std::string_view title, std::string_view 
     imageAcquiredForPresent = device.createSemaphore({});
     transferCompleted = device.createFence(vk::FenceCreateInfo{}.setFlags(vk::FenceCreateFlagBits::eSignaled));
 
-    Engine::Instance().Resources().SetLoaderAndDestroyer<vk::ShaderModule>(
+    Resources().SetLoaderAndDestroyer<vk::ShaderModule>(
         [this](auto path) { return static_cast<VkShaderModule>(LoadShader(path)); },
         [this](void* sm) noexcept { device.destroyShaderModule(reinterpret_cast<VkShaderModule>(sm)); });
 
-    const VkBufferCreateInfo& ubCreateInfo = vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(glm::mat4));
+    const VkBufferCreateInfo& ubCreateInfo = vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(MatrixBlock));
     VmaAllocationCreateInfo ubAllocInfo{};
     ubAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     ubAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
@@ -61,9 +62,7 @@ Graphics::Graphics(SDL_Window* window, std::string_view title, std::string_view 
             vmaCreateBuffer(allocator, &ubCreateInfo, &ubAllocInfo, reinterpret_cast<VkBuffer*>(&matrixBuffer), &matrixBufferAlloc, &matrixBufferAllocInfo))
         throw std::runtime_error{vk::to_string(static_cast<vk::Result>(result))};
 
-    auto mat = glm::mat4{1};
-
-    std::memcpy(matrixBufferAllocInfo.pMappedData, glm::value_ptr(mat), sizeof(glm::mat4));
+    std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
     vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
 
     originGizmo = std::make_unique<OriginGizmo>();
@@ -256,12 +255,10 @@ void Graphics::Render()
         return;
     }
 
-    auto p = glm::perspective(glm::radians(60.f), width / static_cast<float>(height), 0.03f, 1000.f);
-    p[1][1] *= -1;
-    auto v = glm::lookAt(glm::vec3{3.f, 3.f, 3.f}, glm::vec3{}, glm::vec3{0.f, 1.f, 0.f});
-    auto mat = p * v;
+    matrices.projection = glm::perspective(glm::radians(60.f), width / static_cast<float>(height), 0.03f, 1000.f);
+    matrices.projection[1][1] *= -1;
 
-    std::memcpy(matrixBufferAllocInfo.pMappedData, glm::value_ptr(mat), sizeof(glm::mat4));
+    std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
     vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
 
     std::ignore = device.waitForFences({fences[image], transferCompleted}, true, std::numeric_limits<uint64_t>::max());
@@ -344,6 +341,7 @@ void Graphics::Render()
         std::cout << "Present: Out of date" << std::endl;
         recreateSwapchain = true;
     }
+
     for (size_t i = 0; i < transferGarbage.size(); ++i)
     {
         vmaDestroyBuffer(allocator, std::get<0>(transferGarbage[i]), std::get<1>(transferGarbage[i]));
@@ -355,6 +353,16 @@ void Graphics::Render()
 void Graphics::OnWindowSizeChanged() noexcept
 {
     recreateSwapchain = true;
+}
+
+void Graphics::ViewMatrix(const glm::mat4& view)
+{
+    matrices.view = view;
+}
+
+void Graphics::ProjectionMatrix(const glm::mat4& projection)
+{
+    matrices.projection = projection;
 }
 
 void Graphics::EnqueueTransfer(const TransferChunk& cmdBuf)
@@ -378,4 +386,6 @@ vk::ShaderModule Graphics::LoadShader(const fs::path& path)
     std::ifstream file{fullPath, std::ios::binary};
     file.read(reinterpret_cast<char*>(data.data()), size);
     return device.createShaderModule(vk::ShaderModuleCreateInfo{}.setCodeSize(size).setCode(data));
+}
+
 }

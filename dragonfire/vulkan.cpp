@@ -1,6 +1,6 @@
 #include "pch.h"
 
-#include "Graphics.h"
+#include "Engine.h"
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                                               const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pMessenger)
@@ -24,21 +24,21 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSetDebugUtilsObjectNameEXT(VkDevice device, con
 
 VKAPI_ATTR void VKAPI_CALL vkQueueInsertDebugUtilsLabelEXT(VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo)
 {
-    auto func = (PFN_vkQueueInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics::Instance().VkInstance(), "vkQueueInsertDebugUtilsLabelEXT");
+    auto func = (PFN_vkQueueInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics().VkInstance(), "vkQueueInsertDebugUtilsLabelEXT");
     if (func)
         func(queue, pLabelInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkQueueBeginDebugUtilsLabelEXT(VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo)
 {
-    auto func = (PFN_vkQueueBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics::Instance().VkInstance(), "vkQueueBeginDebugUtilsLabelEXT");
+    auto func = (PFN_vkQueueBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics().VkInstance(), "vkQueueBeginDebugUtilsLabelEXT");
     if (func)
         func(queue, pLabelInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkQueueEndDebugUtilsLabelEXT(VkQueue queue)
 {
-    auto func = (PFN_vkQueueEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics::Instance().VkInstance(), "vkQueueEndDebugUtilsLabelEXT");
+    auto func = (PFN_vkQueueEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(Graphics().VkInstance(), "vkQueueEndDebugUtilsLabelEXT");
     if (func)
         func(queue);
 }

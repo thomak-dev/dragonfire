@@ -5,7 +5,7 @@ constexpr uint32_t swapchainImagesDesired = 3;
 class GraphicsBase
 {
 public:
-    GraphicsBase(SDL_Window* window, std::string_view title, std::string_view engineName);
+    GraphicsBase(SDL_Window* window, std::string_view title);
     GraphicsBase() = delete;
     GraphicsBase(GraphicsBase&) = delete;
     GraphicsBase(GraphicsBase&&) = delete;
@@ -22,7 +22,6 @@ public:
     uint32_t TransferQueueFamily() const noexcept { return transferQueueFamily; }
 
 protected:
-    static GraphicsBase* instance;
     vk::Instance vkInstance;
     vk::DebugUtilsMessengerEXT dbgMessenger;
     vk::PhysicalDevice physicalDevice;

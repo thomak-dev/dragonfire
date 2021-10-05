@@ -3,7 +3,6 @@
 #include "GraphicsBase.h"
 
 static std::map<uint32_t, int> ignoredMessages;
-GraphicsBase* GraphicsBase::instance{};
 
 VKAPI_ATTR VkBool32 VKAPI_PTR OnVkDebugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                               VkDebugUtilsMessageTypeFlagsEXT messageTypes,
@@ -50,7 +49,7 @@ bool CheckQueueFamilies(const vk::ArrayProxy<const vk::QueueFamilyProperties>& q
     return graphics && transfer && present;
 }
 
-GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title, std::string_view engineName)
+GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title)
 {
 
     uint32_t numExtensions;
@@ -93,7 +92,7 @@ GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title, std::stri
     const auto appInfo = vk::ApplicationInfo{}
                              .setPApplicationName(title.data())
                              .setApplicationVersion(1)
-                             .setPEngineName(engineName.data())
+                             .setPEngineName(title.data())
                              .setEngineVersion(1)
                              .setApiVersion(VK_API_VERSION_1_0);
 
@@ -208,7 +207,6 @@ GraphicsBase::~GraphicsBase()
     vkInstance.destroyDebugUtilsMessengerEXT(dbgMessenger);
 #endif
     vkInstance.destroy();
-    instance = nullptr;
 }
 
 void GraphicsBase::IgnoreVkMessage(uint32_t messageId)

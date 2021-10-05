@@ -18,7 +18,7 @@ const uint32_t OriginGizmo::indices[18] = {0, 1, 2, 0, 2, 3, 4, 7, 6, 4, 6, 5, 8
 OriginGizmo::OriginGizmo()
 #pragma warning(pop)
 {
-    auto allocator = Graphics::Instance().Allocator();
+    auto allocator = Graphics().Allocator();
     auto bufferCreateInfo =
         vk::BufferCreateInfo{}.setSize(sizeof(vertices)).setUsage(vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
     VmaAllocationCreateInfo vmaInfo{};
@@ -55,8 +55,7 @@ OriginGizmo::OriginGizmo()
     const auto vertexBinding = vk::VertexInputBindingDescription{}.setInputRate(vk::VertexInputRate::eVertex).setStride(sizeof(Vertex));
     const auto vertexState = vk::PipelineVertexInputStateCreateInfo{}.setVertexBindingDescriptions(vertexBinding).setVertexAttributeDescriptions(attribs);
 
-    auto& graphics = Graphics::Instance();
-    const auto device = Graphics::Instance().Device();
+    const auto device = Graphics().Device();
     const auto layoutBinding = vk::DescriptorSetLayoutBinding{}
                                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                                    .setStageFlags(vk::ShaderStageFlagBits::eVertex)
@@ -68,23 +67,23 @@ OriginGizmo::OriginGizmo()
     std::array dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
     const auto dynamicStateInfo = vk::PipelineDynamicStateCreateInfo{}.setDynamicStates(dynamicStates);
 
-    auto vert = Engine::Instance().Resources().Get<vk::ShaderModule>("shaders/origin.vert.spv");
-    auto frag = Engine::Instance().Resources().Get<vk::ShaderModule>("shaders/origin.frag.spv");
-    const auto attachments = vk::PipelineColorBlendAttachmentState{}.setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                                                                                       vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
-    const auto blendState = vk::PipelineColorBlendStateCreateInfo{}.setAttachments(attachments);
+    auto vert = Resources().Get<vk::ShaderModule>("shaders/origin.vert.spv");
+    auto frag = Resources().Get<vk::ShaderModule>("shaders/origin.frag.spv");
+    const auto blendAttachmentState = vk::PipelineColorBlendAttachmentState{}.setColorWriteMask(
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+    const auto blendState = vk::PipelineColorBlendStateCreateInfo{}.setAttachments(blendAttachmentState);
     std::array stages = {vk::PipelineShaderStageCreateInfo{}.setModule(vert.get()).setPName("main").setStage(vk::ShaderStageFlagBits::eVertex),
                          vk::PipelineShaderStageCreateInfo{}.setModule(frag.get()).setPName("main").setStage(vk::ShaderStageFlagBits::eFragment)};
 
-    const auto viewport = vk::Viewport{}.setMaxDepth(1).setHeight(static_cast<float>(graphics.Height())).setWidth(static_cast<float>(graphics.Width()));
-    const auto scissor = vk::Rect2D{}.setExtent(vk::Extent2D{graphics.Width(), graphics.Height()});
+    const auto viewport = vk::Viewport{}.setMaxDepth(1).setHeight(static_cast<float>(Graphics().Height())).setWidth(static_cast<float>(Graphics().Width()));
+    const auto scissor = vk::Rect2D{}.setExtent(vk::Extent2D{Graphics().Width(), Graphics().Height()});
     const auto viewportInfo = vk::PipelineViewportStateCreateInfo{}.setViewports(viewport).setScissors(scissor);
     const auto msState = vk::PipelineMultisampleStateCreateInfo{}.setRasterizationSamples(vk::SampleCountFlagBits::e1);
     const auto rasterizationState = vk::PipelineRasterizationStateCreateInfo{}.setLineWidth(1).setFrontFace(vk::FrontFace::eCounterClockwise);
     const auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
                                   .setLayout(pipelineLayout)
                                   .setStages(stages)
-                                  .setRenderPass(graphics.RenderPass())
+                                  .setRenderPass(Graphics().RenderPass())
                                   .setPInputAssemblyState(&inputAssembly)
                                   .setPVertexInputState(&vertexState)
                                   .setPDynamicState(&dynamicStateInfo)
@@ -94,18 +93,20 @@ OriginGizmo::OriginGizmo()
                                   .setPMultisampleState(&msState);
 
     pipeline = device.createGraphicsPipeline(nullptr, pipelineInfo).value;
+    Resources().RequestFree("shaders/origin.vert.spv");
+    Resources().RequestFree("shaders/origin.frag.spv");
     const auto descPoolSize = vk::DescriptorPoolSize{}.setDescriptorCount(1).setType(vk::DescriptorType::eUniformBuffer);
     descPool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{}.setMaxSets(1).setPoolSizes(descPoolSize));
     descriptorSet =
         device.allocateDescriptorSets(vk::DescriptorSetAllocateInfo{}.setDescriptorPool(descPool).setSetLayouts(setLayout).setDescriptorSetCount(1)).front();
 
-    const auto ubInfo = vk::DescriptorBufferInfo{}.setBuffer(graphics.MatrixBuffer()).setRange(VK_WHOLE_SIZE);
+    const auto ubInfo = vk::DescriptorBufferInfo{}.setBuffer(Graphics().MatrixBuffer()).setRange(VK_WHOLE_SIZE);
     device.updateDescriptorSets(
         vk::WriteDescriptorSet{}.setDescriptorType(vk::DescriptorType::eUniformBuffer).setDescriptorCount(1).setBufferInfo(ubInfo).setDstSet(descriptorSet),
         nullptr);
 
     auto cmdBuffer =
-        device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{}.setCommandPool(graphics.TransferCommandPool()).setCommandBufferCount(1)).front();
+        device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{}.setCommandPool(Graphics().TransferCommandPool()).setCommandBufferCount(1)).front();
     cmdBuffer.begin(vk::CommandBufferBeginInfo{}.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
     cmdBuffer.copyBuffer(stagingBuffer, vertexBuffer, vk::BufferCopy{}.setSize(sizeof(vertices)));
     cmdBuffer.copyBuffer(stagingBuffer, indexBuffer, vk::BufferCopy{}.setSize(sizeof(indices)).setSrcOffset(sizeof(vertices)));
@@ -115,8 +116,8 @@ OriginGizmo::OriginGizmo()
                                   .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
                                   .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
                                   .setSize(sizeof(vertices))
-                                  .setSrcQueueFamilyIndex(graphics.TransferQueueFamily())
-                                  .setDstQueueFamilyIndex(graphics.GraphicsQueueFamily()),
+                                  .setSrcQueueFamilyIndex(Graphics().TransferQueueFamily())
+                                  .setDstQueueFamilyIndex(Graphics().GraphicsQueueFamily()),
                               {});
     cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eBottomOfPipe, {}, {},
                               vk::BufferMemoryBarrier{}
@@ -124,18 +125,18 @@ OriginGizmo::OriginGizmo()
                                   .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
                                   .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
                                   .setSize(sizeof(indices))
-                                  .setSrcQueueFamilyIndex(graphics.TransferQueueFamily())
-                                  .setDstQueueFamilyIndex(graphics.GraphicsQueueFamily()),
+                                  .setSrcQueueFamilyIndex(Graphics().TransferQueueFamily())
+                                  .setDstQueueFamilyIndex(Graphics().GraphicsQueueFamily()),
                               {});
     cmdBuffer.end();
-    graphics.EnqueueTransfer(
+    Graphics().EnqueueTransfer(
         {cmdBuffer, stagingBuffer, stagingBufferAlloc, {std::make_tuple(vertexBuffer, sizeof(vertices)), std::make_tuple(indexBuffer, sizeof(indices))}});
 }
 
 OriginGizmo::~OriginGizmo()
 {
-    auto allocator = Graphics::Instance().Allocator();
-    const auto device = Graphics::Instance().Device();
+    auto allocator = Graphics().Allocator();
+    const auto device = Graphics().Device();
     device.destroyDescriptorPool(descPool);
     device.destroyPipeline(pipeline);
     device.destroyDescriptorSetLayout(setLayout);

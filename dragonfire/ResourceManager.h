@@ -5,6 +5,8 @@
 class ResourceManager
 {
 public:
+    ResourceManager(const std::function<void()>& waitFunction) : waitFunction(waitFunction) {}
+
     template <typename T, typename Loader, typename Destroyer, typename = std::enable_if_t<!std::is_pointer<T>::value>>
     void SetLoaderAndDestroyer(Loader loader, Destroyer destroyer);
 
@@ -17,6 +19,9 @@ public:
         return Get<typename std::remove_pointer<typename T::CType>::type>(path);
     }
     void Clear() noexcept { resources.clear(); }
+    void RequestFree(std::string_view path) { freeRequests.push_back(std::string{path}); }
+
+    void Update();
 
 private:
     using LoaderFunction = std::function<void*(std::string_view)>;
@@ -36,6 +41,8 @@ private:
 
     std::unordered_map<std::string, Resource> resources;
     std::vector<FunctionPair> functions;
+    std::vector<std::string> freeRequests;
+    std::function<void()> waitFunction;
 
     static uint32_t GetNextTypeId() noexcept
     {
@@ -55,6 +62,8 @@ private:
     {
         return GetTypeId<typename std::remove_pointer<typename T::CType>::type>();
     }
+
+    void FreeInternal(const std::string& key);
 };
 
 template <typename T, typename>
@@ -62,7 +71,7 @@ std::shared_ptr<T> ResourceManager::Get(std::string_view path) noexcept
 {
     try
     {
-        auto element = resources.at(std::string{path});
+        auto& element = resources.at(std::string{path});
         if (element.type != GetTypeId<T>())
             return nullptr;
         return std::reinterpret_pointer_cast<T>(element.ptr);

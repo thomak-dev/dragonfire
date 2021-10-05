@@ -3,10 +3,14 @@
 #include "GraphicsBase.h"
 
 class OriginGizmo;
+
+namespace gfx
+{
+
 class Graphics : public GraphicsBase
 {
 public:
-    Graphics(SDL_Window* window, std::string_view title, std::string_view engineName);
+    Graphics(SDL_Window* window, std::string_view title);
     Graphics() = delete;
     Graphics(Graphics&) = delete;
     Graphics(Graphics&&) = delete;
@@ -14,7 +18,6 @@ public:
     Graphics& operator=(Graphics&&) = delete;
     ~Graphics();
 
-    static Graphics& Instance() noexcept { return *dynamic_cast<Graphics*>(instance); }
     uint32_t Width() const noexcept { return width; }
     uint32_t Height() const noexcept { return height; }
     vk::RenderPass RenderPass() const noexcept { return renderPass; }
@@ -32,11 +35,21 @@ public:
     void EnqueueTransfer(const TransferChunk& cmdBuf);
     void Render();
     void OnWindowSizeChanged() noexcept;
+    void ViewMatrix(const glm::mat4& view);
+    void ProjectionMatrix(const glm::mat4& projection);
+    const glm::mat4& ViewMatrix() const noexcept { return matrices.view; }
+    const glm::mat4& ProjectionMatrix() const noexcept { return matrices.projection; }
 
     vk::ShaderModule LoadShader(const std::filesystem::path& path);
     const vk::SurfaceFormatKHR surfaceFormat;
 
 private:
+    struct MatrixBlock
+    {
+        glm::mat4 view;
+        glm::mat4 projection;
+    };
+
     std::vector<vk::CommandBuffer> graphicsCmdBuffers;
     std::vector<vk::CommandBuffer> acquireImageForPresentCmdBuffers;
     std::vector<vk::Fence> fences;
@@ -62,6 +75,7 @@ private:
     VmaAllocationInfo matrixBufferAllocInfo{};
 
     vk::PresentModeKHR presentMode;
+    MatrixBlock matrices;
     uint32_t width{};
     uint32_t height{};
     bool recreateSwapchain{};
@@ -69,3 +83,5 @@ private:
     vk::SurfaceFormatKHR DetermineSurfaceFormat();
     bool CreateSwapchain();
 };
+
+}
