@@ -35,6 +35,8 @@ public:
     void EnqueueTransfer(const TransferChunk& cmdBuf);
     void Render();
     void OnWindowSizeChanged() noexcept;
+    void OnDpiChanged(uint32_t dpi) noexcept { this->dpi = dpi; };
+    uint32_t Dpi() const noexcept { return dpi; }
     void ViewMatrix(const glm::mat4& view);
     void ProjectionMatrix(const glm::mat4& projection);
     const glm::mat4& ViewMatrix() const noexcept { return matrices.view; }
@@ -78,7 +80,9 @@ private:
     MatrixBlock matrices;
     uint32_t width{};
     uint32_t height{};
+    uint32_t dpi{};
     bool recreateSwapchain{};
+    bool matricesDirty{true};
 
     vk::SurfaceFormatKHR DetermineSurfaceFormat();
     bool CreateSwapchain();

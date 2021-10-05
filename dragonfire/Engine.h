@@ -21,6 +21,11 @@ public:
 
     void Run();
     virtual bool Update(double dt) = 0;
+    virtual void OnWindowSizeChanged(uint32_t width, uint32_t height)
+    {
+        std::ignore = width;
+        std::ignore = height;
+    }
     void RequestWait() const
     {
 #ifndef NDEBUG

@@ -15,6 +15,14 @@ EngineBase::EngineBase(std::string_view title)
                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
         throw std::runtime_error{SDL_GetError()};
+
+    SDL_version version;
+    SDL_VERSION(&version);
+    std::cout << "Compiled against SDL version: " << static_cast<int>(version.major) << '.' << static_cast<int>(version.minor) << '.'
+              << static_cast<int>(version.patch) << '\n';
+    SDL_GetVersion(&version);
+    std::cout << "Actual SDL version: " << static_cast<int>(version.major) << '.' << static_cast<int>(version.minor) << '.' << static_cast<int>(version.patch)
+              << '\n';
 }
 
 EngineBase::~EngineBase()

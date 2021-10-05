@@ -51,7 +51,6 @@ bool CheckQueueFamilies(const vk::ArrayProxy<const vk::QueueFamilyProperties>& q
 
 GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title)
 {
-
     uint32_t numExtensions;
     if (!SDL_Vulkan_GetInstanceExtensions(window, &numExtensions, nullptr))
         throw std::runtime_error{SDL_GetError()};

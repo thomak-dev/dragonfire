@@ -49,9 +49,8 @@ Graphics::Graphics(SDL_Window* window, std::string_view title)
     imageAcquiredForPresent = device.createSemaphore({});
     transferCompleted = device.createFence(vk::FenceCreateInfo{}.setFlags(vk::FenceCreateFlagBits::eSignaled));
 
-    Resources().SetLoaderAndDestroyer<vk::ShaderModule>(
-        [this](auto path) { return static_cast<VkShaderModule>(LoadShader(path)); },
-        [this](void* sm) noexcept { device.destroyShaderModule(reinterpret_cast<VkShaderModule>(sm)); });
+    Resources().SetLoaderAndDestroyer<vk::ShaderModule>([this](auto path) { return static_cast<VkShaderModule>(LoadShader(path)); },
+                                                        [this](void* sm) noexcept { device.destroyShaderModule(reinterpret_cast<VkShaderModule>(sm)); });
 
     const VkBufferCreateInfo& ubCreateInfo = vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(MatrixBlock));
     VmaAllocationCreateInfo ubAllocInfo{};
@@ -209,7 +208,7 @@ bool Graphics::CreateSwapchain()
                 vk::CommandBufferAllocateInfo{}.setCommandPool(graphicsCommandPool).setCommandBufferCount(static_cast<uint32_t>(count)));
             std::copy(bufs.begin(), bufs.end(), graphicsCmdBuffers.begin() + graphicsCmdBuffersSizeBefore);
         }
-
+        
         return true;
     }
     return false;
@@ -255,11 +254,12 @@ void Graphics::Render()
         return;
     }
 
-    matrices.projection = glm::perspective(glm::radians(60.f), width / static_cast<float>(height), 0.03f, 1000.f);
-    matrices.projection[1][1] *= -1;
-
-    std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
-    vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
+    if (matricesDirty)
+    {
+        std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
+        vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
+        matricesDirty = false;
+    }
 
     std::ignore = device.waitForFences({fences[image], transferCompleted}, true, std::numeric_limits<uint64_t>::max());
     device.resetFences(fences[image]);
@@ -358,11 +358,13 @@ void Graphics::OnWindowSizeChanged() noexcept
 void Graphics::ViewMatrix(const glm::mat4& view)
 {
     matrices.view = view;
+    matricesDirty = true;
 }
 
 void Graphics::ProjectionMatrix(const glm::mat4& projection)
 {
     matrices.projection = projection;
+    matricesDirty = true;
 }
 
 void Graphics::EnqueueTransfer(const TransferChunk& cmdBuf)

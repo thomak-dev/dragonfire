@@ -53,3 +53,10 @@ bool Game::Update(double dt)
 
     return false;
 }
+
+void Game::OnWindowSizeChanged(uint32_t width, uint32_t height)
+{
+    auto proj = glm::perspective(glm::radians(60.f), width / static_cast<float>(height), 0.03f, 1000.f);
+    proj[1][1] *= -1;
+    graphics.ProjectionMatrix(proj);
+}

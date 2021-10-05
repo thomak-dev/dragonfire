@@ -7,7 +7,8 @@
 int main(int argc, char** argv)
 #pragma warning(pop)
 {
-    std::ignore = argc, argv;
+    std::ignore = argc;
+    std::ignore = argv;
     Game game{"Dragonfire"};
     game.Run();
     return 0;
