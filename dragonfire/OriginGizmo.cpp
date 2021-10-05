@@ -3,9 +3,8 @@
 #include "OriginGizmo.h"
 
 #include "Engine.h"
-#include "Graphics.h"
 
-const Vertex OriginGizmo::vertices[12] = {
+const UnlitVertex OriginGizmo::vertices[12] = {
     {glm::vec3(0, 0, 0), glm::vec4(1, 1, 0, 1)}, {glm::vec3(1, 0, 0), glm::vec4(1, 1, 0, 1)}, {glm::vec3(1, 1, 0), glm::vec4(1, 1, 0, 1)},
     {glm::vec3(0, 1, 0), glm::vec4(1, 1, 0, 1)}, {glm::vec3(0, 0, 0), glm::vec4(1, 0, 1, 1)}, {glm::vec3(1, 0, 0), glm::vec4(1, 0, 1, 1)},
     {glm::vec3(1, 0, 1), glm::vec4(1, 0, 1, 1)}, {glm::vec3(0, 0, 1), glm::vec4(1, 0, 1, 1)}, {glm::vec3(0, 0, 0), glm::vec4(0, 1, 1, 1)},
@@ -50,9 +49,9 @@ OriginGizmo::OriginGizmo()
 
     const auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo{}.setTopology(vk::PrimitiveTopology::eTriangleList);
     std::array attribs = {vk::VertexInputAttributeDescription{}.setFormat(vk::Format::eR32G32B32Sfloat),
-                          vk::VertexInputAttributeDescription{}.setFormat(vk::Format::eR32G32B32A32Sfloat).setLocation(1).setOffset(offsetof(Vertex, color))};
+                          vk::VertexInputAttributeDescription{}.setFormat(vk::Format::eR32G32B32A32Sfloat).setLocation(1).setOffset(offsetof(UnlitVertex, color))};
 
-    const auto vertexBinding = vk::VertexInputBindingDescription{}.setInputRate(vk::VertexInputRate::eVertex).setStride(sizeof(Vertex));
+    const auto vertexBinding = vk::VertexInputBindingDescription{}.setInputRate(vk::VertexInputRate::eVertex).setStride(sizeof(UnlitVertex));
     const auto vertexState = vk::PipelineVertexInputStateCreateInfo{}.setVertexBindingDescriptions(vertexBinding).setVertexAttributeDescriptions(attribs);
 
     const auto device = Graphics().Device();

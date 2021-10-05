@@ -23,10 +23,13 @@ EngineBase::EngineBase(std::string_view title)
     SDL_GetVersion(&version);
     std::cout << "Actual SDL version: " << static_cast<int>(version.major) << '.' << static_cast<int>(version.minor) << '.' << static_cast<int>(version.patch)
               << '\n';
+
+    basePath = SDL_GetBasePath();
 }
 
 EngineBase::~EngineBase()
 {
+    SDL_free(basePath);
     SDL_DestroyWindow(window);
     SDL_Quit();
     instance = nullptr;

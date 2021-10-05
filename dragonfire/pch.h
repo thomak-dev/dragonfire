@@ -12,21 +12,28 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <map>
+#include <numeric>
+#include <optional>
 #include <queue>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #ifndef NOMINMAX

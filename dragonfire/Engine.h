@@ -11,10 +11,6 @@ public:
     friend gfx::Graphics& Graphics() noexcept;
     friend ResourceManager& Resources() noexcept;
     explicit Engine(std::string_view title);
-    Engine(Engine&) = delete;
-    Engine(Engine&&) = delete;
-    Engine& operator=(Engine&) = delete;
-    Engine& operator=(Engine&&) = delete;
     ~Engine();
 
     static Engine& Instance() noexcept { return *dynamic_cast<Engine*>(instance); }
@@ -23,7 +19,7 @@ public:
     virtual bool Update(double dt) = 0;
     virtual void OnWindowSizeChanged(uint32_t width, uint32_t height)
     {
-        std::ignore = width;
+        std::ignore = width;        
         std::ignore = height;
     }
     void RequestWait() const
@@ -34,9 +30,11 @@ public:
         graphics.Device().waitIdle();
     };
 
+    std::string LoadBinaryFile(const std::filesystem::path& relativePath);
+
 protected:
     ResourceManager resources;
-    ::Input input;
+    Input input;
     gfx::Graphics graphics;
 };
 

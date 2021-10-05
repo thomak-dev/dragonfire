@@ -2,18 +2,26 @@
 
 #include "Game.h"
 
-#include "Engine.h"
+#include "dfmath.h"
+#include "Mesh.h"
+
+namespace fs = std::filesystem;
 
 Game::Game(std::string_view title) : Engine(title)
 {
     SDL_SetRelativeMouseMode(SDL_TRUE);
+
+    camera.position = glm::vec3(3, 3, 3);
+    camera.rotation = LookAt(glm::vec3(1, 1, 1), glm::vec3(0, 1, 0));
+
+    Mesh mesh(fs::path(BasePath()) /= "assets\\meshes\\monke.gltf");
 }
 
 bool Game::Update(double dt)
 {
     int x = 0, y = 0;
-    auto buttonState = SDL_GetRelativeMouseState(&x, &y);
-    auto relative = SDL_GetRelativeMouseMode();
+    const auto buttonState = SDL_GetRelativeMouseState(&x, &y);
+    const auto relative = SDL_GetRelativeMouseMode();
 
     if (input.IsKeyDown(SDL_SCANCODE_SPACE))
         camera.position += glm::rotate(glm::inverse(camera.rotation), glm::vec3(0, 1 * dt, 0));
@@ -56,7 +64,10 @@ bool Game::Update(double dt)
 
 void Game::OnWindowSizeChanged(uint32_t width, uint32_t height)
 {
-    auto proj = glm::perspective(glm::radians(60.f), width / static_cast<float>(height), 0.03f, 1000.f);
-    proj[1][1] *= -1;
-    graphics.ProjectionMatrix(proj);
+    if (width > 0 && height > 0)
+    {
+        auto proj = glm::perspective(glm::radians(camera.fov), width / static_cast<float>(height), camera.nearPlane, camera.farPlane);
+        proj[1][1] *= -1;
+        graphics.ProjectionMatrix(proj);
+    }
 }

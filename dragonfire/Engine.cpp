@@ -4,6 +4,8 @@
 
 #include "dftime.h"
 
+namespace fs = std::filesystem;
+
 Engine::Engine(std::string_view title) : EngineBase(title), resources(std::bind(&Engine::RequestWait, this)), graphics(window, title)
 {
     int w, h;
@@ -75,6 +77,16 @@ void Engine::Run()
         input.Update();
     }
     RequestWait();
+}
+
+std::string Engine::LoadBinaryFile(const std::filesystem::path& relativePath)
+{
+    fs::path fullPath{Engine::Instance().BasePath()};
+    fullPath /= relativePath.lexically_normal();
+    std::ifstream file{fullPath, std::ios::binary};
+    std::stringstream strStream;
+    strStream << file.rdbuf();
+    return strStream.str();
 }
 
 Engine::~Engine()

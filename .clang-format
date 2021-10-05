@@ -5,8 +5,6 @@ PointerAlignment: Left
 DerivePointerAlignment: false
 AccessModifierOffset: -4
 AlwaysBreakTemplateDeclarations: Yes
-AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Inline
-FixNamespaceComments: false
 CompactNamespaces: true
 ...

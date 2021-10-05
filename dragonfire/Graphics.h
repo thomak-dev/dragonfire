@@ -37,8 +37,8 @@ public:
     void OnWindowSizeChanged() noexcept;
     void OnDpiChanged(uint32_t dpi) noexcept { this->dpi = dpi; };
     uint32_t Dpi() const noexcept { return dpi; }
-    void ViewMatrix(const glm::mat4& view);
-    void ProjectionMatrix(const glm::mat4& projection);
+    void ViewMatrix(const glm::mat4& view) noexcept;
+    void ProjectionMatrix(const glm::mat4& projection) noexcept;
     const glm::mat4& ViewMatrix() const noexcept { return matrices.view; }
     const glm::mat4& ProjectionMatrix() const noexcept { return matrices.projection; }
 

@@ -6,8 +6,6 @@
 #include "OriginGizmo.h"
 #include "dfmath.h"
 
-namespace fs = std::filesystem;
-
 namespace gfx
 {
 
@@ -73,8 +71,15 @@ Graphics::~Graphics()
     {
         device.waitIdle();
     }
-    catch (...)
+    catch (const vk::SystemError& err)
     {
+        try
+        {
+            std::cout << "~Graphics(): " << err.what() << std::endl;
+        }
+        catch (...)
+        {
+        }
     }
     vmaDestroyBuffer(allocator, matrixBuffer, matrixBufferAlloc);
     for (size_t i = 0; i < fences.size(); ++i)
@@ -208,7 +213,7 @@ bool Graphics::CreateSwapchain()
                 vk::CommandBufferAllocateInfo{}.setCommandPool(graphicsCommandPool).setCommandBufferCount(static_cast<uint32_t>(count)));
             std::copy(bufs.begin(), bufs.end(), graphicsCmdBuffers.begin() + graphicsCmdBuffersSizeBefore);
         }
-        
+
         return true;
     }
     return false;
@@ -355,13 +360,13 @@ void Graphics::OnWindowSizeChanged() noexcept
     recreateSwapchain = true;
 }
 
-void Graphics::ViewMatrix(const glm::mat4& view)
+void Graphics::ViewMatrix(const glm::mat4& view) noexcept
 {
     matrices.view = view;
     matricesDirty = true;
 }
 
-void Graphics::ProjectionMatrix(const glm::mat4& projection)
+void Graphics::ProjectionMatrix(const glm::mat4& projection) noexcept
 {
     matrices.projection = projection;
     matricesDirty = true;
@@ -379,15 +384,10 @@ void Graphics::EnqueueTransfer(const TransferChunk& cmdBuf)
     }
 }
 
-vk::ShaderModule Graphics::LoadShader(const fs::path& path)
+vk::ShaderModule Graphics::LoadShader(const std::filesystem::path& path)
 {
-    fs::path fullPath{SDL_GetBasePath()};
-    fullPath /= path.lexically_normal();
-    const auto size = fs::file_size(fullPath);
-    std::vector<uint32_t> data(size / 4);
-    std::ifstream file{fullPath, std::ios::binary};
-    file.read(reinterpret_cast<char*>(data.data()), size);
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{}.setCodeSize(size).setCode(data));
+    auto bytes = Engine::Instance().LoadBinaryFile(path);
+    return device.createShaderModule(vk::ShaderModuleCreateInfo{}.setCodeSize(bytes.size()).setPCode(reinterpret_cast<uint32_t*>(bytes.data())));
 }
 
-}
+} // namespace gfx

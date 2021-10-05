@@ -19,7 +19,7 @@ public:
     vk::DescriptorSet descriptorSet;
 
 private:
-    static const Vertex vertices[12];
+    static const UnlitVertex vertices[12];
     static const uint32_t indices[18];
     VmaAllocation vertexBufferAlloc{};
     VmaAllocation indexBufferAlloc{};

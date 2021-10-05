@@ -11,3 +11,6 @@ template <typename T>
 struct has_ctype_member<T, std::void_t<typename T::CType>> : std::true_type
 {
 };
+
+template <class>
+inline constexpr bool always_false_v = false;

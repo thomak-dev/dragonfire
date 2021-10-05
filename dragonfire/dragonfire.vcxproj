@@ -83,6 +83,11 @@
       <Command>glslangValidator.exe -V %(Identity) -o $(OutDir)%(Identity).spv</Command>
       <Outputs>$(OutDir)%(Identity).spv</Outputs>
     </CustomBuild>
+    <CustomBuildStep>
+      <Command>robocopy $(SolutionDir)assets\ $(OutDir)assets\ /mir /xo
+if errorlevel 1 exit /b 0</Command>
+      <Outputs>dummy</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -116,6 +121,11 @@
       <Command>glslangValidator.exe -V %(Identity) -o $(OutDir)%(Identity).spv</Command>
       <Outputs>$(OutDir)%(Identity).spv</Outputs>
     </CustomBuild>
+    <CustomBuildStep>
+      <Command>robocopy $(SolutionDir)assets\ $(OutDir)assets\ /mir /xo
+if errorlevel 1 exit /b 0</Command>
+      <Outputs>dummy</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp" />
@@ -125,12 +135,14 @@
     <ClCompile Include="GraphicsBase.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="OriginGizmo.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="ResourceManager.cpp" />
+    <ClCompile Include="StreamReader.cpp" />
     <ClCompile Include="vulkan.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -143,9 +155,11 @@
     <ClInclude Include="GraphicsBase.h" />
     <ClInclude Include="dfmath.h" />
     <ClInclude Include="Input.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="OriginGizmo.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ResourceManager.h" />
+    <ClInclude Include="StreamReader.h" />
     <ClInclude Include="tmp.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
