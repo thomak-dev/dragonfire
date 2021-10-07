@@ -2,8 +2,8 @@
 
 #include "Game.h"
 
-#include "dfmath.h"
 #include "Mesh.h"
+#include "dfmath.h"
 
 namespace fs = std::filesystem;
 
@@ -54,8 +54,9 @@ bool Game::Update(double dt)
         roll += 1;
 
     if (relative)
-        camera.rotation =
-            glm::toQuat(glm::yawPitchRoll(x * static_cast<float>(dt), y * static_cast<float>(dt), roll * static_cast<float>(dt))) * camera.rotation;
+        camera.rotation = glm::toQuat(glm::yawPitchRoll(0.5f * glm::radians(static_cast<float>(x)), 0.5f * glm::radians(static_cast<float>(y)),
+                                                        roll * static_cast<float>(dt))) *
+                          camera.rotation;
 
     graphics.ViewMatrix(glm::toMat4(camera.rotation) * glm::translate(glm::mat4(1), -camera.position));
 
