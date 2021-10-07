@@ -107,26 +107,7 @@ Mesh::Mesh(const std::filesystem::path& path)
         IndexArray indices;
 
         const auto& positionAccessor = doc.accessors.Get(primitive.GetAttributeAccessorId(PositionAttribute));
-        if (primitive.indicesAccessorId.empty())
-        {
-            if (!primitive.HasAttribute(PositionAttribute))
-                continue;
-
-            if (positionAccessor.count < UINT8_MAX)
-                indices = std::vector<uint8_t>(positionAccessor.count);
-            else if (positionAccessor.count < UINT16_MAX)
-                indices = std::vector<uint16_t>(positionAccessor.count);
-            else
-                indices = std::vector<uint32_t>(positionAccessor.count);
-
-            std::visit(
-                [&](auto&& arg) {
-                    using T = std::decay_t<decltype(arg)>;
-                    std::iota(std::get<T>(indices).begin(), std::get<T>(indices).end(), 0);
-                },
-                indices);
-        }
-        else
+        if (!primitive.indicesAccessorId.empty())
         {
             const auto& indicesAccessor = doc.accessors.Get(primitive.indicesAccessorId);
             switch (indicesAccessor.componentType)
@@ -201,7 +182,8 @@ Mesh::Mesh(const std::filesystem::path& path)
 
         parts.emplace_back();
         auto& part = parts.back();
-        part.indices = std::move(indices);
+        if (!(indices.index() == 0 && std::get<0>(indices).empty()))
+            part.indices = std::move(indices);
         part.vertices = std::move(vertices);
         part.topology = TopologyFromMeshMode(primitive.mode);
         part.loop = primitive.mode == gltf::MeshMode::MESH_LINE_LOOP;

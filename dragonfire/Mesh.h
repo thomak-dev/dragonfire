@@ -6,7 +6,7 @@ using IndexArray = std::variant<std::vector<uint8_t>, std::vector<uint16_t>, std
 struct MeshPart
 {
     vk::PrimitiveTopology topology;
-    IndexArray indices;
+    std::optional<IndexArray> indices;
     std::vector<Vertex> vertices;
     bool loop;
 };
