@@ -4,17 +4,15 @@
 
 static std::map<uint32_t, int> ignoredMessages;
 
-VKAPI_ATTR VkBool32 VKAPI_PTR OnVkDebugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                              VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-                                                              const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+VKAPI_ATTR vk::Bool32 VKAPI_PTR OnVkDebugUtilsMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                                vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+                                                                const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
     std::ignore = pUserData;
-    auto data = reinterpret_cast<const vk::DebugUtilsMessengerCallbackDataEXT*>(pCallbackData);
-    if (static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity) > vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose &&
-        ignoredMessages[data->messageIdNumber] == 0)
+    auto data = pCallbackData;
+    if (messageSeverity > vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose && ignoredMessages[data->messageIdNumber] == 0)
     {
-        std::cout << vk::to_string(static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity)) << ": "
-                  << vk::to_string(static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)) << ": ";
+        std::cout << vk::to_string(messageSeverity) << ": " << vk::to_string(messageTypes) << ": ";
         if (data->pMessageIdName)
             std::cout << data->pMessageIdName;
         std::cout << ": " << data->pMessage << std::endl;
@@ -23,7 +21,7 @@ VKAPI_ATTR VkBool32 VKAPI_PTR OnVkDebugUtilsMessengerCallback(VkDebugUtilsMessag
     if (ignoredMessages[data->messageIdNumber] < 0)
         std::cout << "Warning: Imbalanced ignored messages." << std::endl;
 
-    if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
         throw std::runtime_error{data->pMessage};
 
     return VK_FALSE;
@@ -88,10 +86,13 @@ GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title)
     features.setPNext(&dbgCreateInfo);
 #endif
 
+    // Vulkan wants null terminated strings, which a string_view does not promise. This has to
+    // outlive appInfo, which only borrows the pointer, and with it the createInstance below.
+    const std::string appName{title};
     const auto appInfo = vk::ApplicationInfo{}
-                             .setPApplicationName(title.data())
+                             .setPApplicationName(appName.c_str())
                              .setApplicationVersion(1)
-                             .setPEngineName(title.data())
+                             .setPEngineName(appName.c_str())
                              .setEngineVersion(1)
                              .setApiVersion(VK_API_VERSION_1_0);
 
@@ -163,8 +164,7 @@ GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title)
         ++i;
     }
 
-    device = physicalDevice.createDevice(
-        vk::DeviceCreateInfo{}.setQueueCreateInfos(queueCreateInfos).setPEnabledLayerNames(layers).setPEnabledExtensionNames(deviceExtensions));
+    device = physicalDevice.createDevice(vk::DeviceCreateInfo{}.setQueueCreateInfos(queueCreateInfos).setPEnabledExtensionNames(deviceExtensions));
 
     auto idx = indicesMap[graphicsQueueFamily];
     if (idx > 0)
@@ -181,14 +181,9 @@ GraphicsBase::GraphicsBase(SDL_Window* window, std::string_view title)
         indicesMap[presentQueueFamily] = idx - 1;
     presentQueue = device.getQueue(presentQueueFamily, idx - 1);
 
-    auto surfaceCaps = physicalDevice.getSurfaceCapabilitiesKHR(surface);
     VmaAllocatorCreateInfo allocatorCreateInfo{};
     allocatorCreateInfo.device = device;
     allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT; // single threaded for now
-    allocatorCreateInfo.frameInUseCount =
-        static_cast<uint32_t>(std::max(surfaceCaps.minImageCount,
-                                       (surfaceCaps.maxImageCount ? std::min(surfaceCaps.maxImageCount, swapchainImagesDesired) : swapchainImagesDesired)) -
-                              1);
     allocatorCreateInfo.instance = vkInstance;
     allocatorCreateInfo.physicalDevice = physicalDevice;
     allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_0;
@@ -208,16 +203,20 @@ GraphicsBase::~GraphicsBase()
     vkInstance.destroy();
 }
 
-void GraphicsBase::IgnoreVkMessage(uint32_t messageId)
+void GraphicsBase::IgnoreVkMessage(uint32_t messageId) noexcept
 {
+    std::ignore = messageId; // only used in debug builds
 #ifndef NDEBUG
+#pragma warning(suppress : 26447) // the map only throws when an allocation fails
     ++ignoredMessages[messageId];
 #endif
 }
 
-void GraphicsBase::UnignoreVkMessage(uint32_t messageId)
+void GraphicsBase::UnignoreVkMessage(uint32_t messageId) noexcept
 {
+    std::ignore = messageId; // only used in debug builds
 #ifndef NDEBUG
+#pragma warning(suppress : 26447) // the map only throws when an allocation fails
     --ignoredMessages[messageId];
 #endif
 }

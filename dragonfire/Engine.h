@@ -11,13 +11,17 @@ public:
     friend gfx::Graphics& Graphics() noexcept;
     friend ResourceManager& Resources() noexcept;
     explicit Engine(std::string_view title);
-    ~Engine();
+    Engine(Engine&) = delete;
+    Engine(Engine&&) = delete;
+    Engine& operator=(Engine&) = delete;
+    Engine& operator=(Engine&&) = delete;
+    ~Engine() override;
 
     static Engine& Instance() noexcept { return *dynamic_cast<Engine*>(instance); }
 
     void Run();
     virtual bool Update(double dt) = 0;
-    virtual void OnWindowSizeChanged(uint32_t width, uint32_t height)
+    virtual void OnWindowSizeChanged(uint32_t width, uint32_t height) noexcept
     {
         std::ignore = width;        
         std::ignore = height;

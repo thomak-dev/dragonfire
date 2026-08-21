@@ -40,12 +40,13 @@
 #define NOMINMAX
 #include <vulkan/vulkan.hpp> // includes windows.h
 #undef NOMINMAX
-#elif
+#else
 #include <vulkan/vulkan.hpp>
 #endif
-#include <vk_mem_alloc.h>
+#include <vma/vk_mem_alloc.h>
 
 //#define GLM_FORCE_MESSAGES
+#define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_INTRINSICS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES

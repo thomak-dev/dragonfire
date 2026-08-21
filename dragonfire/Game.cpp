@@ -63,7 +63,9 @@ bool Game::Update(double dt)
     return false;
 }
 
-void Game::OnWindowSizeChanged(uint32_t width, uint32_t height)
+#pragma warning(push)
+#pragma warning(disable : 26447) // glm carries no noexcept annotations, but none of it throws
+void Game::OnWindowSizeChanged(uint32_t width, uint32_t height) noexcept
 {
     if (width > 0 && height > 0)
     {
@@ -72,3 +74,4 @@ void Game::OnWindowSizeChanged(uint32_t width, uint32_t height)
         graphics.ProjectionMatrix(proj);
     }
 }
+#pragma warning(pop)

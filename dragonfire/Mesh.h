@@ -5,10 +5,10 @@ using IndexArray = std::variant<std::vector<uint8_t>, std::vector<uint16_t>, std
 
 struct MeshPart
 {
-    vk::PrimitiveTopology topology;
+    vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
     std::optional<IndexArray> indices;
     std::vector<Vertex> vertices;
-    bool loop;
+    bool loop{};
 };
 
 class Mesh

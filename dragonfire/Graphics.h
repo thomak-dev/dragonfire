@@ -46,6 +46,8 @@ public:
     const vk::SurfaceFormatKHR surfaceFormat;
 
 private:
+    static constexpr size_t MaxFramesInFlight = 2;
+
     struct MatrixBlock
     {
         glm::mat4 view;
@@ -54,7 +56,6 @@ private:
 
     std::vector<vk::CommandBuffer> graphicsCmdBuffers;
     std::vector<vk::CommandBuffer> acquireImageForPresentCmdBuffers;
-    std::vector<vk::Fence> fences;
     std::vector<vk::Image> swapchainImages;
     std::vector<vk::Framebuffer> framebuffers;
     std::vector<vk::ImageView> swapchainImageViews;
@@ -64,9 +65,18 @@ private:
 
     vk::SwapchainKHR swapchain;
     vk::Fence transferCompleted;
-    vk::Semaphore renderingFinished;
-    vk::Semaphore imageReady;
-    vk::Semaphore imageAcquiredForPresent;
+
+    // one per swapchain image: present waits on these, so their lifetime is tied to the image
+    std::vector<vk::Semaphore> renderingFinished;
+    std::vector<vk::Semaphore> imageAcquiredForPresent;
+    // borrowed handles into frameFences, recording which frame slot last used each image
+    std::vector<vk::Fence> imagesInFlight;
+
+    // one per frame in flight: the acquire semaphore cannot be per-image, because the image
+    // index is not known until the acquire has already completed
+    std::array<vk::Semaphore, MaxFramesInFlight> imageReady{};
+    std::array<vk::Fence, MaxFramesInFlight> frameFences{};
+    size_t frameIndex{};
     vk::CommandPool graphicsCommandPool;
     vk::CommandPool presentCommandPool;
     vk::CommandPool transferCommandPool;

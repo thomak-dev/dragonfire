@@ -1,0 +1,29 @@
+# clang-tidy configuration for dragonfire.
+#
+# MSVC owns compiler warnings (/W4) and the Core Guidelines rules (CppCoreCheckRules.ruleset),
+# so clang-diagnostic-* stays off here: re-reporting the same warnings in clang's dialect only
+# produces duplicates that disagree about which of them apply. What is left are the checks MSVC
+# has no equivalent for.
+#
+# cppcoreguidelines-* is deliberately absent: it repeats the rules already disabled project-wide
+# in dragonfire.vcxproj (gsl::at, no reinterpret_cast, no pointer arithmetic, ...).
+#
+# Individually disabled:
+#   bugprone-exception-escape              duplicates C26447, which the code answers deliberately
+#   bugprone-throwing-static-initialization  file-scope string/map constants, nothing to act on
+#   performance-avoid-endl                 the flush is the point for crash-adjacent debug output
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-exception-escape,
+  -bugprone-throwing-static-initialization,
+  -performance-avoid-endl
+
+# Only diagnose our own headers. Third-party headers (Vulkan SDK, VMA, glm, SDL, glTF SDK) are
+# pulled in through the pch and would otherwise dominate the output.
+HeaderFilterRegex: '[\\/]dragonfire[\\/][A-Za-z0-9_]+\.h$'
+FormatStyle: file

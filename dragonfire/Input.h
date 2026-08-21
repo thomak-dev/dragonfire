@@ -2,7 +2,7 @@
 class Input
 {
 public:
-    Input();
+    Input() noexcept;
     Input(Input&) = delete;
     Input(Input&&) = delete;
     Input& operator=(Input&) = delete;

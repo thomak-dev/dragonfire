@@ -36,8 +36,8 @@ protected:
     uint32_t graphicsQueueFamily{};
     uint32_t transferQueueFamily{};
 
-    static void IgnoreVkMessage(uint32_t messageId);
-    static void UnignoreVkMessage(uint32_t messageId);
+    static void IgnoreVkMessage(uint32_t messageId) noexcept;
+    static void UnignoreVkMessage(uint32_t messageId) noexcept;
 
 private:
     void AssignQueueFamiliyIndices(const std::vector<vk::QueueFamilyProperties>& queueFams);

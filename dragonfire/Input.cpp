@@ -2,10 +2,11 @@
 
 #include "Input.h"
 
-Input::Input()
+Input::Input() noexcept
 {
     int numKeys{};
     std::ignore = SDL_GetKeyboardState(&numKeys);
+#pragma warning(suppress : 26447) // resize() only throws when this small startup allocation fails
     keyStateBefore.resize(numKeys);
 }
 
