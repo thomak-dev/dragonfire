@@ -113,7 +113,6 @@ OriginGizmo::OriginGizmo()
                               vk::BufferMemoryBarrier{}
                                   .setBuffer(vertexBuffer)
                                   .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                                  .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
                                   .setSize(sizeof(vertices))
                                   .setSrcQueueFamilyIndex(Graphics().TransferQueueFamily())
                                   .setDstQueueFamilyIndex(Graphics().GraphicsQueueFamily()),
@@ -122,7 +121,6 @@ OriginGizmo::OriginGizmo()
                               vk::BufferMemoryBarrier{}
                                   .setBuffer(indexBuffer)
                                   .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                                  .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
                                   .setSize(sizeof(indices))
                                   .setSrcQueueFamilyIndex(Graphics().TransferQueueFamily())
                                   .setDstQueueFamilyIndex(Graphics().GraphicsQueueFamily()),

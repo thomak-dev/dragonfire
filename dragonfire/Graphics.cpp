@@ -38,17 +38,26 @@ Graphics::Graphics(SDL_Window* window, std::string_view title)
                                 .setSamples(vk::SampleCountFlagBits::e1);
     const auto attachRef = vk::AttachmentReference{}.setAttachment(0).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
     const auto subpass = vk::SubpassDescription{}.setColorAttachments(attachRef).setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-    renderPass = device.createRenderPass(vk::RenderPassCreateInfo{}.setAttachments(attachment).setSubpasses(subpass));
+    // the render pass performs the eUndefined -> eColorAttachmentOptimal transition, which writes to the image.
+    // order it after the imageReady wait so it cannot race the presentation engine still reading the image.
+    const auto dependency = vk::SubpassDependency{}
+                                .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+                                .setDstSubpass(0)
+                                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+    renderPass = device.createRenderPass(vk::RenderPassCreateInfo{}.setAttachments(attachment).setSubpasses(subpass).setDependencies(dependency));
 
     CreateSwapchain();
 
-    renderingFinished = device.createSemaphore({});
-    imageReady = device.createSemaphore({});
-    imageAcquiredForPresent = device.createSemaphore({});
+    for (auto& semaphore : imageReady)
+        semaphore = device.createSemaphore({});
+    for (auto& fence : frameFences)
+        fence = device.createFence(vk::FenceCreateInfo{}.setFlags(vk::FenceCreateFlagBits::eSignaled));
     transferCompleted = device.createFence(vk::FenceCreateInfo{}.setFlags(vk::FenceCreateFlagBits::eSignaled));
 
     Resources().SetLoaderAndDestroyer<vk::ShaderModule>([this](auto path) { return static_cast<VkShaderModule>(LoadShader(path)); },
-                                                        [this](void* sm) noexcept { device.destroyShaderModule(reinterpret_cast<VkShaderModule>(sm)); });
+                                                        [this](void* sm) noexcept { device.destroyShaderModule(static_cast<VkShaderModule>(sm)); });
 
     const VkBufferCreateInfo& ubCreateInfo = vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(MatrixBlock));
     VmaAllocationCreateInfo ubAllocInfo{};
@@ -82,10 +91,10 @@ Graphics::~Graphics()
         }
     }
     vmaDestroyBuffer(allocator, matrixBuffer, matrixBufferAlloc);
-    for (size_t i = 0; i < fences.size(); ++i)
-    {
-        device.destroyFence(fences[i]);
-    }
+    for (const auto fence : frameFences)
+        device.destroyFence(fence);
+    for (const auto semaphore : imageReady)
+        device.destroySemaphore(semaphore);
     device.destroyFence(transferCompleted);
     for (size_t i = 0; i < swapchainImageViews.size(); ++i)
     {
@@ -96,9 +105,11 @@ Graphics::~Graphics()
     device.destroyCommandPool(graphicsCommandPool);
     device.destroyCommandPool(presentCommandPool);
     device.destroyCommandPool(transferCommandPool);
-    device.destroySemaphore(renderingFinished);
-    device.destroySemaphore(imageReady);
-    device.destroySemaphore(imageAcquiredForPresent);
+    for (size_t i = 0; i < renderingFinished.size(); ++i)
+    {
+        device.destroySemaphore(renderingFinished[i]);
+        device.destroySemaphore(imageAcquiredForPresent[i]);
+    }
     device.destroySwapchainKHR(swapchain);
 }
 
@@ -172,13 +183,19 @@ bool Graphics::CreateSwapchain()
 
         acquireImageForPresentCmdBuffers.resize(swapchainImages.size());
         std::copy(cmdBuffers.begin(), cmdBuffers.begin() + swapchainImages.size(), acquireImageForPresentCmdBuffers.begin());
-        if (fences.size() > swapchainImages.size())
+        if (renderingFinished.size() > swapchainImages.size())
         {
-            std::for_each(fences.begin() + swapchainImages.size(), fences.end(), [&](auto& fence) noexcept { device.destroyFence(fence); });
+            std::for_each(renderingFinished.begin() + swapchainImages.size(), renderingFinished.end(),
+                          [&](auto& sem) noexcept { device.destroySemaphore(sem); });
+            std::for_each(imageAcquiredForPresent.begin() + swapchainImages.size(), imageAcquiredForPresent.end(),
+                          [&](auto& sem) noexcept { device.destroySemaphore(sem); });
             std::for_each(graphicsCmdBuffers.begin() + swapchainImages.size(), graphicsCmdBuffers.end(),
                           [&](auto& buf) noexcept { device.freeCommandBuffers(graphicsCommandPool, buf); });
         }
-        fences.resize(swapchainImages.size());
+        renderingFinished.resize(swapchainImages.size());
+        imageAcquiredForPresent.resize(swapchainImages.size());
+        // device.waitIdle() above means nothing is in flight against the old images
+        imagesInFlight.assign(swapchainImages.size(), vk::Fence{});
         const auto graphicsCmdBuffersSizeBefore = graphicsCmdBuffers.size();
         graphicsCmdBuffers.resize(swapchainImages.size());
         for (size_t i = 0; i < swapchainImages.size(); ++i)
@@ -194,8 +211,10 @@ bool Graphics::CreateSwapchain()
                     .setDstQueueFamilyIndex(presentQueueFamily)
                     .setSubresourceRange(vk::ImageSubresourceRange{}.setAspectMask(vk::ImageAspectFlagBits::eColor).setLayerCount(1).setLevelCount(1)));
             acquireImageForPresentCmdBuffers[i].end();
-            if (!fences[i])
-                fences[i] = device.createFence(vk::FenceCreateInfo{}.setFlags(vk::FenceCreateFlagBits::eSignaled));
+            if (!renderingFinished[i])
+                renderingFinished[i] = device.createSemaphore({});
+            if (!imageAcquiredForPresent[i])
+                imageAcquiredForPresent[i] = device.createSemaphore({});
 
             swapchainImageViews[i] = device.createImageView(
                 vk::ImageViewCreateInfo{}
@@ -237,16 +256,22 @@ void Graphics::Render()
             return;
     }
 
+    const vk::Fence frameFence = frameFences.at(frameIndex);
+    const vk::Semaphore frameImageReady = imageReady.at(frameIndex);
+
+    // wait out this frame slot's previous submission, so its acquire semaphore has no pending wait
+    // operation before acquireNextImageKHR reuses it. Fences start signaled, so the first frames pass through.
+    std::ignore = device.waitForFences(frameFence, true, std::numeric_limits<uint64_t>::max());
+
     uint32_t image{};
     try
     {
-        const auto acquireResult = device.acquireNextImageKHR(swapchain, std::numeric_limits<uint64_t>::max(), imageReady);
+        const auto acquireResult = device.acquireNextImageKHR(swapchain, std::numeric_limits<uint64_t>::max(), frameImageReady);
 
         if (acquireResult.result == vk::Result::eSuboptimalKHR)
         {
             std::cout << "Acquire: Suboptimal" << std::endl;
             recreateSwapchain = true;
-            return;
         }
 
         image = acquireResult.value;
@@ -266,8 +291,13 @@ void Graphics::Render()
         matricesDirty = false;
     }
 
-    std::ignore = device.waitForFences({fences[image], transferCompleted}, true, std::numeric_limits<uint64_t>::max());
-    device.resetFences(fences[image]);
+    // a different frame slot may still be using this image, and with it this image's command buffer
+    if (imagesInFlight[image])
+        std::ignore = device.waitForFences(imagesInFlight[image], true, std::numeric_limits<uint64_t>::max());
+    imagesInFlight[image] = frameFence;
+
+    std::ignore = device.waitForFences(transferCompleted, true, std::numeric_limits<uint64_t>::max());
+    device.resetFences(frameFence);
     auto& cmdBuffer = graphicsCmdBuffers[image];
     cmdBuffer.begin(vk::CommandBufferBeginInfo{}.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
     for (size_t i = 0; i < releasedBuffers.size(); ++i)
@@ -309,31 +339,35 @@ void Graphics::Render()
             .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite));
     cmdBuffer.end();
     const bool shouldAcquireImageForPresentQueue = graphicsQueueFamily != presentQueueFamily;
-    vk::PipelineStageFlags waitDst = vk::PipelineStageFlagBits::eTransfer;
-    graphicsQueue.submit(
-        vk::SubmitInfo{}.setCommandBuffers(cmdBuffer).setSignalSemaphores(renderingFinished).setWaitSemaphores(imageReady).setWaitDstStageMask(waitDst),
-        shouldAcquireImageForPresentQueue ? nullptr : fences[image]);
+    vk::PipelineStageFlags waitDst = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    graphicsQueue.submit(vk::SubmitInfo{}
+                             .setCommandBuffers(cmdBuffer)
+                             .setSignalSemaphores(renderingFinished[image])
+                             .setWaitSemaphores(frameImageReady)
+                             .setWaitDstStageMask(waitDst),
+                         shouldAcquireImageForPresentQueue ? nullptr : frameFence);
 
     if (shouldAcquireImageForPresentQueue)
     {
         waitDst = vk::PipelineStageFlagBits::eAllCommands; // according to khronos
         IgnoreVkMessage(0x48a09f6c);
         presentQueue.submit(vk::SubmitInfo{}
-                                .setWaitSemaphores(renderingFinished)
+                                .setWaitSemaphores(renderingFinished[image])
                                 .setWaitDstStageMask(waitDst)
                                 .setCommandBuffers(acquireImageForPresentCmdBuffers[image])
-                                .setSignalSemaphores(imageAcquiredForPresent),
-                            fences[image]);
+                                .setSignalSemaphores(imageAcquiredForPresent[image]),
+                            frameFence);
         UnignoreVkMessage(0x48a09f6c);
     }
 
     vk::Result presentResult{};
     try
     {
-        presentResult = presentQueue.presentKHR(vk::PresentInfoKHR{}
-                                                    .setImageIndices(image)
-                                                    .setWaitSemaphores(shouldAcquireImageForPresentQueue ? imageAcquiredForPresent : renderingFinished)
-                                                    .setSwapchains(swapchain));
+        presentResult =
+            presentQueue.presentKHR(vk::PresentInfoKHR{}
+                                        .setImageIndices(image)
+                                        .setWaitSemaphores(shouldAcquireImageForPresentQueue ? imageAcquiredForPresent[image] : renderingFinished[image])
+                                        .setSwapchains(swapchain));
 
         if (presentResult == vk::Result::eSuboptimalKHR)
         {
@@ -353,6 +387,7 @@ void Graphics::Render()
     }
     transferGarbage.clear();
     releasedBuffers.clear();
+    frameIndex = (frameIndex + 1) % MaxFramesInFlight;
 }
 
 void Graphics::OnWindowSizeChanged() noexcept

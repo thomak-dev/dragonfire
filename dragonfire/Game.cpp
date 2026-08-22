@@ -14,7 +14,7 @@ Game::Game(std::string_view title) : Engine(title)
     camera.position = glm::vec3(3, 3, 3);
     camera.rotation = LookAt(glm::vec3(1, 1, 1), glm::vec3(0, 1, 0));
 
-    Mesh mesh(fs::path(BasePath()) /= "assets\\meshes\\monke.gltf");
+    Mesh mesh(fs::path(BasePath()) /= "assets\\meshes\\suzanne.glb");
 }
 
 bool Game::Update(double dt)
@@ -63,7 +63,7 @@ bool Game::Update(double dt)
     return false;
 }
 
-void Game::OnWindowSizeChanged(uint32_t width, uint32_t height)
+void Game::OnWindowSizeChanged(uint32_t width, uint32_t height) noexcept
 {
     if (width > 0 && height > 0)
     {
