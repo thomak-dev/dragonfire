@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics.h"
 #include "Vertex.h"
 
 class OriginGizmo
@@ -16,7 +17,7 @@ public:
     vk::Buffer indexBuffer;
     vk::Pipeline pipeline;
     vk::PipelineLayout pipelineLayout;
-    vk::DescriptorSet descriptorSet;
+    std::array<vk::DescriptorSet, gfx::Graphics::MaxFramesInFlight> descriptorSets{};
 
 private:
     static const UnlitVertex vertices[12];

@@ -59,17 +59,21 @@ Graphics::Graphics(SDL_Window* window, std::string_view title)
     Resources().SetLoaderAndDestroyer<vk::ShaderModule>([this](auto path) { return static_cast<VkShaderModule>(LoadShader(path)); },
                                                         [this](void* sm) noexcept { device.destroyShaderModule(static_cast<VkShaderModule>(sm)); });
 
-    const VkBufferCreateInfo& ubCreateInfo = vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(MatrixBlock));
+    const auto ubCreateInfo =
+        static_cast<VkBufferCreateInfo>(vk::BufferCreateInfo{}.setUsage(vk::BufferUsageFlagBits::eUniformBuffer).setSize(sizeof(MatrixBlock)));
     VmaAllocationCreateInfo ubAllocInfo{};
     ubAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     ubAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    if (const auto result =
-            vmaCreateBuffer(allocator, &ubCreateInfo, &ubAllocInfo, reinterpret_cast<VkBuffer*>(&matrixBuffer), &matrixBufferAlloc, &matrixBufferAllocInfo))
-        throw std::runtime_error{vk::to_string(static_cast<vk::Result>(result))};
+    for (size_t i = 0; i < MaxFramesInFlight; ++i)
+    {
+        if (const auto result = vmaCreateBuffer(allocator, &ubCreateInfo, &ubAllocInfo, reinterpret_cast<VkBuffer*>(&matrixBuffers[i]),
+                                                &matrixBufferAllocs[i], &matrixBufferAllocInfos[i]))
+            throw std::runtime_error{vk::to_string(static_cast<vk::Result>(result))};
 
-    std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
-    vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
+        std::memcpy(matrixBufferAllocInfos[i].pMappedData, &matrices, sizeof(MatrixBlock));
+        vmaFlushAllocation(allocator, matrixBufferAllocs[i], 0, VK_WHOLE_SIZE);
+    }
 
     originGizmo = std::make_unique<OriginGizmo>();
 }
@@ -90,7 +94,8 @@ Graphics::~Graphics()
         {
         }
     }
-    vmaDestroyBuffer(allocator, matrixBuffer, matrixBufferAlloc);
+    for (size_t i = 0; i < MaxFramesInFlight; ++i)
+        vmaDestroyBuffer(allocator, matrixBuffers[i], matrixBufferAllocs[i]);
     for (const auto fence : frameFences)
         device.destroyFence(fence);
     for (const auto semaphore : imageReady)
@@ -284,11 +289,13 @@ void Graphics::Render()
         return;
     }
 
-    if (matricesDirty)
+    // this slot's fence was waited on above, so its previous submission - the only reader of this slot's
+    // uniform buffer - has completed and the buffer is safe to write
+    if (matricesDirty[frameIndex])
     {
-        std::memcpy(matrixBufferAllocInfo.pMappedData, &matrices, sizeof(MatrixBlock));
-        vmaFlushAllocation(allocator, matrixBufferAlloc, 0, VK_WHOLE_SIZE);
-        matricesDirty = false;
+        std::memcpy(matrixBufferAllocInfos[frameIndex].pMappedData, &matrices, sizeof(MatrixBlock));
+        vmaFlushAllocation(allocator, matrixBufferAllocs[frameIndex], 0, VK_WHOLE_SIZE);
+        matricesDirty[frameIndex] = false;
     }
 
     // a different frame slot may still be using this image, and with it this image's command buffer
@@ -323,7 +330,7 @@ void Graphics::Render()
     cmdBuffer.setViewport(0, vk::Viewport{}.setMinDepth(0).setMaxDepth(1).setWidth(static_cast<float>(width)).setHeight(static_cast<float>(height)));
     cmdBuffer.setScissor(0, vk::Rect2D{}.setExtent({width, height}));
     cmdBuffer.bindIndexBuffer(originGizmo->indexBuffer, 0, vk::IndexType::eUint32);
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, originGizmo->pipelineLayout, 0, originGizmo->descriptorSet, nullptr);
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, originGizmo->pipelineLayout, 0, originGizmo->descriptorSets[frameIndex], nullptr);
     cmdBuffer.bindVertexBuffers(0, originGizmo->vertexBuffer, {0});
     cmdBuffer.drawIndexed(18, 1, 0, 0, 0);
     cmdBuffer.endRenderPass();
@@ -398,13 +405,13 @@ void Graphics::OnWindowSizeChanged() noexcept
 void Graphics::ViewMatrix(const glm::mat4& view) noexcept
 {
     matrices.view = view;
-    matricesDirty = true;
+    matricesDirty.fill(true);
 }
 
 void Graphics::ProjectionMatrix(const glm::mat4& projection) noexcept
 {
     matrices.projection = projection;
-    matricesDirty = true;
+    matricesDirty.fill(true);
 }
 
 void Graphics::EnqueueTransfer(const TransferChunk& cmdBuf)

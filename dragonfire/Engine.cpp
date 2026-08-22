@@ -28,7 +28,7 @@ void Engine::Run()
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
     SDL_Event event{};
     bool quit = false;
-    Clock::time_point timeBefore;
+    auto timeBefore = Clock::now();
     OnWindowSizeChanged(graphics.Width(), graphics.Height());
 
     while (!quit)

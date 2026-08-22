@@ -94,15 +94,24 @@ OriginGizmo::OriginGizmo()
     pipeline = device.createGraphicsPipeline(nullptr, pipelineInfo).value;
     Resources().RequestFree("shaders/origin.vert.spv");
     Resources().RequestFree("shaders/origin.frag.spv");
-    const auto descPoolSize = vk::DescriptorPoolSize{}.setDescriptorCount(1).setType(vk::DescriptorType::eUniformBuffer);
-    descPool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{}.setMaxSets(1).setPoolSizes(descPoolSize));
-    descriptorSet =
-        device.allocateDescriptorSets(vk::DescriptorSetAllocateInfo{}.setDescriptorPool(descPool).setSetLayouts(setLayout).setDescriptorSetCount(1)).front();
+    // one set per frame slot, each pointing at that slot's uniform buffer
+    constexpr auto frameCount = static_cast<uint32_t>(gfx::Graphics::MaxFramesInFlight);
+    const auto descPoolSize = vk::DescriptorPoolSize{}.setDescriptorCount(frameCount).setType(vk::DescriptorType::eUniformBuffer);
+    descPool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{}.setMaxSets(frameCount).setPoolSizes(descPoolSize));
+    const std::vector<vk::DescriptorSetLayout> setLayouts(frameCount, setLayout);
+    const auto sets = device.allocateDescriptorSets(vk::DescriptorSetAllocateInfo{}.setDescriptorPool(descPool).setSetLayouts(setLayouts));
+    std::copy(sets.begin(), sets.end(), descriptorSets.begin());
 
-    const auto ubInfo = vk::DescriptorBufferInfo{}.setBuffer(Graphics().MatrixBuffer()).setRange(VK_WHOLE_SIZE);
-    device.updateDescriptorSets(
-        vk::WriteDescriptorSet{}.setDescriptorType(vk::DescriptorType::eUniformBuffer).setDescriptorCount(1).setBufferInfo(ubInfo).setDstSet(descriptorSet),
-        nullptr);
+    for (size_t i = 0; i < descriptorSets.size(); ++i)
+    {
+        const auto ubInfo = vk::DescriptorBufferInfo{}.setBuffer(Graphics().MatrixBuffer(i)).setRange(VK_WHOLE_SIZE);
+        device.updateDescriptorSets(vk::WriteDescriptorSet{}
+                                        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                                        .setDescriptorCount(1)
+                                        .setBufferInfo(ubInfo)
+                                        .setDstSet(descriptorSets[i]),
+                                    nullptr);
+    }
 
     auto cmdBuffer =
         device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{}.setCommandPool(Graphics().TransferCommandPool()).setCommandBufferCount(1)).front();

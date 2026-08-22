@@ -18,10 +18,14 @@ public:
     Graphics& operator=(Graphics&&) = delete;
     ~Graphics();
 
+    // one uniform buffer and one descriptor set per frame slot,
+    // so the CPU never writes a buffer a submission still in flight is reading
+    static constexpr size_t MaxFramesInFlight = 2;
+
     uint32_t Width() const noexcept { return width; }
     uint32_t Height() const noexcept { return height; }
     vk::RenderPass RenderPass() const noexcept { return renderPass; }
-    vk::Buffer MatrixBuffer() const noexcept { return matrixBuffer; }
+    vk::Buffer MatrixBuffer(size_t frame) const noexcept { return matrixBuffers.at(frame); }
     vk::CommandPool TransferCommandPool() const noexcept { return transferCommandPool; }
 
     struct TransferChunk
@@ -46,8 +50,6 @@ public:
     const vk::SurfaceFormatKHR surfaceFormat;
 
 private:
-    static constexpr size_t MaxFramesInFlight = 2;
-
     struct MatrixBlock
     {
         glm::mat4 view;
@@ -79,9 +81,9 @@ private:
     vk::CommandPool transferCommandPool;
     vk::RenderPass renderPass;
     std::unique_ptr<OriginGizmo> originGizmo;
-    vk::Buffer matrixBuffer;
-    VmaAllocation matrixBufferAlloc{};
-    VmaAllocationInfo matrixBufferAllocInfo{};
+    std::array<vk::Buffer, MaxFramesInFlight> matrixBuffers{};
+    std::array<VmaAllocation, MaxFramesInFlight> matrixBufferAllocs{};
+    std::array<VmaAllocationInfo, MaxFramesInFlight> matrixBufferAllocInfos{};
 
     vk::PresentModeKHR presentMode;
     MatrixBlock matrices;
@@ -89,7 +91,8 @@ private:
     uint32_t height{};
     uint32_t dpi{};
     bool recreateSwapchain{};
-    bool matricesDirty{true};
+    // per frame slot: a matrix change has to reach every slot's buffer, one slot at a time
+    std::array<bool, MaxFramesInFlight> matricesDirty{};
 
     vk::SurfaceFormatKHR DetermineSurfaceFormat();
     bool CreateSwapchain();
